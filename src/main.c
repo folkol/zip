@@ -33,12 +33,12 @@ FILE *file;
 
 const long END_OF_DIR_SIGNATURE = 0x06054b50;
 const long DIR_HEADER_SIGNATURE = 0x02014b50;
+const long FILE_HEADER_SIGNATURE = 0x04034b50;
 
 typedef struct {
-  short version_made_by;             // version made by                 2 bytes
   short version_needed;              // version needed to extract       2 bytes
   short bit_flag;                    // general purpose bit flag        2 bytes
-  short compression_method;           // compression method              2 bytes
+  short compression_method;          // compression method              2 bytes
   short last_modified_time;          // last mod file time              2 bytes
   short last_modified_date;          // last mod file date              2 bytes
   long  checksum;                    // crc-32                          4 bytes
@@ -46,12 +46,31 @@ typedef struct {
   long  uncompressed_size;           // uncompressed size               4 bytes
   short filename_length;             // file name length                2 bytes
   short extra_field_length;          // extra field length              2 bytes
-  short comment_length;         // file comment length             2 bytes
+  char* filename;                    // file name (variable size)
+  char* extra_field;                 // extra field (variable size)
+} local_file_header;
+
+typedef struct {
+} encryption_header;
+
+typedef struct {
+  short version_made_by;             // version made by                 2 bytes
+  short version_needed;              // version needed to extract       2 bytes
+  short bit_flag;                    // general purpose bit flag        2 bytes
+  short compression_method;          // compression method              2 bytes
+  short last_modified_time;          // last mod file time              2 bytes
+  short last_modified_date;          // last mod file date              2 bytes
+  long  checksum;                    // crc-32                          4 bytes
+  long  compressed_size;             // compressed size                 4 bytes
+  long  uncompressed_size;           // uncompressed size               4 bytes
+  short filename_length;             // file name length                2 bytes
+  short extra_field_length;          // extra field length              2 bytes
+  short comment_length;              // file comment length             2 bytes
   short disk_no;                     // disk number start               2 bytes
   short internal_file_attr;          // internal file attributes        2 bytes
   long  external_file_attr;          // external file attributes        4 bytes
   long  rel_offset_local_header;     // relative offset of local header 4 bytes
-  char* filename;                   // file name (variable size)
+  char* filename;                    // file name (variable size)
   char* extra_field;                 // extra field (variable size)
   char* comment;                     // file comment (variable size)
 } dir_header;
@@ -78,7 +97,7 @@ void print_usage() {
 
 void read_dir() {
   int x;
-  long signature;
+  long signature = 0;
   dir = (dir_header*) malloc(end_of_dir.dir_entries * sizeof(dir_header));
   fseek(file, end_of_dir.dir_offset, SEEK_SET);
   for(x = 0; x < end_of_dir.dir_entries; x++) {
@@ -120,13 +139,14 @@ void read_dir() {
       printf("Filename: %s\n", dir[x].filename);
       printf("Extra field: %s\n", dir[x].extra_field);
       printf("Comment: %s\n", dir[x].comment);
+      printf("encrypted: %d\n", dir[x].bit_flag & 0x1);
     }
   }
 }
 
 void read_end_of_dir() {
   long offset = -4;
-  long signature;
+  long signature = 0;
   while(1) {
     if(fseek(file, offset, SEEK_END)) {
       fprintf(stderr, "Zip file is corrupt!");
@@ -164,13 +184,54 @@ void read_end_of_dir() {
   }
 }
 
+void extract_file(const dir_header dir_entry) {
+  long signature = 0;
+  local_file_header h;
+  printf("About to extract file: %s\n", dir_entry.filename);
+  fseek(file, dir_entry.rel_offset_local_header, SEEK_SET);
+  fread(&signature, 4, 1, file);
+  if(signature != FILE_HEADER_SIGNATURE) {
+    fprintf(stderr, "Wrong signature for local file header, was %lx!", signature);
+    exit(EXIT_FAILURE);
+  } else {
+      printf("Found file header");
+      fread(&h.version_needed, 2, 1, file);
+      fread(&h.bit_flag, 2, 1, file);
+      fread(&h.compression_method, 2, 1, file);
+      fread(&h.last_modified_time, 2, 1, file);
+      fread(&h.last_modified_date, 2, 1, file);
+      fread(&h.checksum, 4, 1, file);
+      fread(&h.compressed_size, 4, 1, file);
+      fread(&h.uncompressed_size, 4, 1, file);
+      fread(&h.filename_length, 2, 1, file);
+      fread(&h.extra_field_length, 2, 1, file);
+
+      h.filename = (char*) malloc(h.filename_length + 1);
+      fread(h.filename, h.filename_length, 1, file);
+      h.filename[h.filename_length] = '\0';
+
+      h.extra_field = (char*) malloc(h.extra_field_length + 1);
+      fread(h.extra_field, h.extra_field_length, 1, file);
+      h.extra_field[h.extra_field_length] = '\0';
+
+      printf("Filename: %s\n", h.filename);
+      printf("Extra field: %s\n", h.extra_field);
+      printf("Compression method: %d\n", h.compression_method);
+
+      if(h.bit_flag & 0x1) {
+        fprintf(stderr, "fzip does not support encypted zip files, sry :S");
+        exit(EXIT_FAILURE);
+      }
+  }
+}
+
 int main(int argc, char** argv) {
   char* filename = argv[1];
   if(argc < 2) {
     print_usage();
   }
 
-  file = fopen(argv[1], "rb");
+  file = fopen(argv[argc - 1], "rb");
   if (!file) {
     fprintf(stderr, "Unable to open file %s", filename);
     return;
@@ -178,6 +239,11 @@ int main(int argc, char** argv) {
 
   read_end_of_dir();
   read_dir();
+
+  int x;
+  for(x = 0; x < end_of_dir.dir_entries; x++) {
+    extract_file(dir[x]);
+  }
 
   fclose(file);
 
