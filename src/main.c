@@ -229,7 +229,17 @@ void extract_file(const dir_header dir_entry) {
       }
 
       FILE* output_file = fopen(h.filename, "w");
-      fprintf(output_file, "Hello world");
+
+      int x;
+      for(x = 0; x < h.compressed_size; x++) {
+        char ch;
+        if( ( ch = fgetc(file) ) != EOF ) {
+          fputc(ch, output_file);
+        } else {
+          fprintf(stderr, "failed to read archived data...\n");
+          exit(EXIT_FAILURE);
+        }
+      }
       close(output_file);
   }
 }
