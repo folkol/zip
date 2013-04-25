@@ -56,7 +56,7 @@ void read_end_of_directory() {
       fprintf(stderr, "Zip file is corrupt!");
       exit(EXIT_FAILURE);
     }
-    fread(&signature, sizeof(long), 1, file);
+    fread(&signature, 4, 1, file);
     if(signature == 0x06054b50) {
       printf("Found end of directory at %li!", ftell(file));
       exit(EXIT_SUCCESS);
