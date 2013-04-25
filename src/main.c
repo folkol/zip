@@ -222,6 +222,15 @@ void extract_file(const dir_header dir_entry) {
         fprintf(stderr, "fzip does not support encypted zip files, sry :S");
         exit(EXIT_FAILURE);
       }
+
+      if(h.compression_method != 0) {
+        fprintf(stderr, "fzip only supports stored files atm.. sry :S");
+        exit(EXIT_FAILURE);
+      }
+
+      FILE* output_file = fopen(h.filename, "w");
+      fprintf(output_file, "Hello world");
+      close(output_file);
   }
 }
 
