@@ -31,7 +31,32 @@
 
 FILE *file;
 
-const long DIR_SIGNATURE = 0x06054b50;
+const long END_OF_DIR_SIGNATURE = 0x06054b50;
+const long DIR_HEADER_SIGNATURE = 0x02014b50;
+
+typedef struct {
+  short version_made_by;             // version made by                 2 bytes
+  short version_needed;              // version needed to extract       2 bytes
+  short bit_flag;                    // general purpose bit flag        2 bytes
+  short compression_method;           // compression method              2 bytes
+  short last_modified_time;          // last mod file time              2 bytes
+  short last_modified_date;          // last mod file date              2 bytes
+  long  checksum;                    // crc-32                          4 bytes
+  long  compressed_size;             // compressed size                 4 bytes
+  long  uncompressed_size;           // uncompressed size               4 bytes
+  short filename_length;             // file name length                2 bytes
+  short extra_field_length;          // extra field length              2 bytes
+  short comment_length;         // file comment length             2 bytes
+  short disk_no;                     // disk number start               2 bytes
+  short internal_file_attr;          // internal file attributes        2 bytes
+  long  external_file_attr;          // external file attributes        4 bytes
+  long  rel_offset_local_header;     // relative offset of local header 4 bytes
+  char* filename;                   // file name (variable size)
+  char* extra_field;                 // extra field (variable size)
+  char* comment;                     // file comment (variable size)
+} dir_header;
+
+dir_header* dir;
 
 struct {
   short disk_no;                     // number of this disk (2 bytes)
@@ -51,6 +76,54 @@ void print_usage() {
   exit(EXIT_FAILURE);
 }
 
+void read_dir() {
+  int x;
+  long signature;
+  dir = (dir_header*) malloc(end_of_dir.dir_entries * sizeof(dir_header));
+  fseek(file, end_of_dir.dir_offset, SEEK_SET);
+  for(x = 0; x < end_of_dir.dir_entries; x++) {
+    fread(&signature, 4, 1, file);
+    if(signature != DIR_HEADER_SIGNATURE) {
+      fprintf(stderr, "Wrong signature for directory header!");
+      exit(EXIT_FAILURE);
+    } else {
+      printf("Found file header");
+      fread(&dir[x].version_made_by, 2, 1, file);
+      fread(&dir[x].version_needed, 2, 1, file);
+      fread(&dir[x].bit_flag, 2, 1, file);
+      fread(&dir[x].compression_method, 2, 1, file);
+      fread(&dir[x].last_modified_time, 2, 1, file);
+      fread(&dir[x].last_modified_date, 2, 1, file);
+      fread(&dir[x].checksum, 4, 1, file);
+      fread(&dir[x].compressed_size, 4, 1, file);
+      fread(&dir[x].uncompressed_size, 4, 1, file);
+      fread(&dir[x].filename_length, 2, 1, file);
+      fread(&dir[x].extra_field_length, 2, 1, file);
+      fread(&dir[x].comment_length, 2, 1, file);
+      fread(&dir[x].disk_no, 2, 1, file);
+      fread(&dir[x].internal_file_attr, 2, 1, file);
+      fread(&dir[x].external_file_attr, 4, 1, file);
+      fread(&dir[x].rel_offset_local_header, 4, 1, file);
+
+      dir[x].filename = (char*) malloc(dir[x].filename_length + 1);
+      fread(dir[x].filename, dir[x].filename_length, 1, file);
+      dir[x].filename[dir[x].filename_length] = '\0';
+
+      dir[x].extra_field = (char*) malloc(dir[x].extra_field_length + 1);
+      fread(dir[x].extra_field, dir[x].extra_field_length, 1, file);
+      dir[x].extra_field[dir[x].extra_field_length] = '\0';
+
+      dir[x].comment = (char*) malloc(dir[x].comment_length + 1);
+      fread(dir[x].comment, dir[x].comment_length, 1, file);
+      dir[x].comment[dir[x].comment_length] = '\0';
+
+      printf("Filename: %s\n", dir[x].filename);
+      printf("Extra field: %s\n", dir[x].extra_field);
+      printf("Comment: %s\n", dir[x].comment);
+    }
+  }
+}
+
 void read_end_of_dir() {
   long offset = -4;
   long signature;
@@ -60,7 +133,7 @@ void read_end_of_dir() {
       exit(EXIT_FAILURE);
     }
     fread(&signature, 4, 1, file);
-    if(signature == DIR_SIGNATURE) {
+    if(signature == END_OF_DIR_SIGNATURE) {
       printf("Found end of directory at %li!\n", ftell(file));
 
       fread(&end_of_dir.disk_no, 2, 1, file);
@@ -104,6 +177,7 @@ int main(int argc, char** argv) {
   }
 
   read_end_of_dir();
+  read_dir();
 
   fclose(file);
 
