@@ -194,42 +194,37 @@ void extract_file(const dir_header dir_entry) {
     fprintf(stderr, "Wrong signature for local file header, was %lx!", signature);
     exit(EXIT_FAILURE);
   } else {
-      printf("Found file header");
-      fread(&h.version_needed, 2, 1, file);
-      fread(&h.bit_flag, 2, 1, file);
-      fread(&h.compression_method, 2, 1, file);
-      fread(&h.last_modified_time, 2, 1, file);
-      fread(&h.last_modified_date, 2, 1, file);
-      fread(&h.checksum, 4, 1, file);
-      fread(&h.compressed_size, 4, 1, file);
-      fread(&h.uncompressed_size, 4, 1, file);
-      fread(&h.filename_length, 2, 1, file);
-      fread(&h.extra_field_length, 2, 1, file);
+    printf("Found file header");
+    fread(&h.version_needed, 2, 1, file);
+    fread(&h.bit_flag, 2, 1, file);
+    fread(&h.compression_method, 2, 1, file);
+    fread(&h.last_modified_time, 2, 1, file);
+    fread(&h.last_modified_date, 2, 1, file);
+    fread(&h.checksum, 4, 1, file);
+    fread(&h.compressed_size, 4, 1, file);
+    fread(&h.uncompressed_size, 4, 1, file);
+    fread(&h.filename_length, 2, 1, file);
+    fread(&h.extra_field_length, 2, 1, file);
 
-      h.filename = (char*) malloc(h.filename_length + 1);
-      fread(h.filename, h.filename_length, 1, file);
-      h.filename[h.filename_length] = '\0';
+    h.filename = (char*) malloc(h.filename_length + 1);
+    fread(h.filename, h.filename_length, 1, file);
+    h.filename[h.filename_length] = '\0';
 
-      h.extra_field = (char*) malloc(h.extra_field_length + 1);
-      fread(h.extra_field, h.extra_field_length, 1, file);
-      h.extra_field[h.extra_field_length] = '\0';
+    h.extra_field = (char*) malloc(h.extra_field_length + 1);
+    fread(h.extra_field, h.extra_field_length, 1, file);
+    h.extra_field[h.extra_field_length] = '\0';
 
-      printf("Filename: %s\n", h.filename);
-      printf("Extra field: %s\n", h.extra_field);
-      printf("Compression method: %d\n", h.compression_method);
+    printf("Filename: %s\n", h.filename);
+    printf("Extra field: %s\n", h.extra_field);
+    printf("Compression method: %d\n", h.compression_method);
 
-      if(h.bit_flag & 0x1) {
-        fprintf(stderr, "fzip does not support encypted zip files, sry :S");
-        exit(EXIT_FAILURE);
-      }
+    if(h.bit_flag & 0x1) {
+      fprintf(stderr, "fzip does not support encypted zip files, sry :S");
+      exit(EXIT_FAILURE);
+    }
 
-      if(h.compression_method != 0) {
-        fprintf(stderr, "fzip only supports stored files atm.. sry :S");
-        exit(EXIT_FAILURE);
-      }
-
+    if(h.compression_method == 0) {
       FILE* output_file = fopen(h.filename, "w");
-
       int x;
       for(x = 0; x < h.compressed_size; x++) {
         char ch;
@@ -238,9 +233,15 @@ void extract_file(const dir_header dir_entry) {
         } else {
           fprintf(stderr, "failed to read archived data...\n");
           exit(EXIT_FAILURE);
-        }
+          }
       }
       close(output_file);
+    } else if (h.compression_method == 8) {
+      printf("Deflated file.");
+    } else {
+      fprintf(stderr, "fzip only supports stored files and deflated files atm.. sry :S");
+      exit(EXIT_FAILURE);
+    }
   }
 }
 
