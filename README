@@ -2,5 +2,7 @@ FZIP
 
 A naive implementation of zip, for educational purposes.
 
+Reference: http://www.pkware.com/documents/casestudies/APPNOTE.TXT
+
 Build with: make
 Run with: ./fzip
