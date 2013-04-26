@@ -237,7 +237,7 @@ void extract_file(const dir_header dir_entry) {
       }
       close(output_file);
     } else if (h.compression_method == 8) {
-      printf("Deflated file.");
+      printf("Deflated file, ignoring.");
     } else {
       fprintf(stderr, "fzip only supports stored files and deflated files atm.. sry :S");
       exit(EXIT_FAILURE);
@@ -267,6 +267,5 @@ int main(int argc, char** argv) {
 
   fclose(file);
 
-  //  printf("%lX\n", crc32(0, (const void*)argv[1], strlen(argv[1])));
   return 0;
 }
